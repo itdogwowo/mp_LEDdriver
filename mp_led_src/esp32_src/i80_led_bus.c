@@ -40,9 +40,8 @@
     mp_lcd_err_t i80_led_get_lane_count(mp_obj_t obj, uint8_t *lane_count);
     
     // Forward declarations
-    STATIC const mp_obj_type_t mp_led_strip_type;
 
-    static bool bus_trans_done_cb(esp_lcd_panel_io_handle_t panel_io, const esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
+    static bool i80_led_bus_trans_done_cb(esp_lcd_panel_io_handle_t panel_io, const esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
     {
         mp_led_i80_bus_obj_t *self = (mp_led_i80_bus_obj_t *)user_ctx;
         self->trans_done = true;
@@ -53,22 +52,14 @@
     }
 
     // Strip object implementation
-    typedef struct _mp_led_strip_obj_t {
-        mp_obj_base_t base;
-        uint8_t pin_index;
-        uint16_t length;
-        uint8_t type;
-        mp_obj_array_t *buf; // bytearray
-        mp_led_i80_bus_obj_t *bus;
-    } mp_led_strip_obj_t;
 
-    STATIC mp_obj_t led_strip_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+    static mp_obj_t led_strip_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
         // This is not called directly usually, but via bus.add_strip
         mp_arg_check_num(n_args, n_kw, 0, 0, false);
         return mp_const_none;
     }
     
-    STATIC mp_obj_t led_strip_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t value) {
+    static mp_obj_t led_strip_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t value) {
         mp_led_strip_obj_t *self = MP_OBJ_TO_PTR(self_in);
         if (value == MP_OBJ_SENTINEL) {
             // Load
@@ -92,7 +83,7 @@
         }
     }
 
-    STATIC void led_strip_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
+    static void led_strip_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
         mp_led_strip_obj_t *self = MP_OBJ_TO_PTR(self_in);
         if (dest[0] == MP_OBJ_NULL) {
             // Load
@@ -113,7 +104,7 @@
 
     // I8080 Bus Implementation
 
-    STATIC mp_obj_t mp_led_i80_bus_add_strip(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
+    static mp_obj_t mp_led_i80_bus_add_strip(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
         enum { ARG_pin_index, ARG_length, ARG_type };
         static const mp_arg_t allowed_args[] = {
             { MP_QSTR_pin_index, MP_ARG_INT | MP_ARG_REQUIRED },
@@ -139,9 +130,9 @@
 
         return MP_OBJ_FROM_PTR(strip);
     }
-    STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mp_led_i80_bus_add_strip_obj, 1, mp_led_i80_bus_add_strip);
+    static MP_DEFINE_CONST_FUN_OBJ_KW(mp_led_i80_bus_add_strip_obj, 1, mp_led_i80_bus_add_strip);
 
-    STATIC mp_obj_t mp_led_i80_bus_show(mp_obj_t self_in) {
+    static mp_obj_t mp_led_i80_bus_show(mp_obj_t self_in) {
         mp_led_i80_bus_obj_t *self = MP_OBJ_TO_PTR(self_in);
         
         // 1. Calculate max length
@@ -242,7 +233,7 @@
         
         return mp_const_none;
     }
-    STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_led_i80_bus_show_obj, mp_led_i80_bus_show);
+    static MP_DEFINE_CONST_FUN_OBJ_1(mp_led_i80_bus_show_obj, mp_led_i80_bus_show);
 
     // Constructor
     static mp_obj_t mp_led_i80_bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args)
@@ -298,7 +289,7 @@
         self->panel_io_config.cs_gpio_num = -1;
         self->panel_io_config.pclk_hz = args[ARG_freq].u_int;
         self->panel_io_config.trans_queue_depth = 4;
-        self->panel_io_config.on_color_trans_done = bus_trans_done_cb;
+        self->panel_io_config.on_color_trans_done = i80_led_bus_trans_done_cb;
         self->panel_io_config.user_ctx = self;
         self->panel_io_config.lcd_cmd_bits = 0;
         self->panel_io_config.lcd_param_bits = 0;
@@ -317,7 +308,7 @@
     }
     
     // Deinit
-    STATIC mp_obj_t mp_led_i80_bus_deinit(mp_obj_t self_in) {
+    static mp_obj_t mp_led_i80_bus_deinit(mp_obj_t self_in) {
         mp_led_i80_bus_obj_t *self = MP_OBJ_TO_PTR(self_in);
         if (self->io_handle) {
             esp_lcd_panel_io_del(self->io_handle);
@@ -329,15 +320,15 @@
         }
         return mp_const_none;
     }
-    STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_led_i80_bus_deinit_obj, mp_led_i80_bus_deinit);
+    static MP_DEFINE_CONST_FUN_OBJ_1(mp_led_i80_bus_deinit_obj, mp_led_i80_bus_deinit);
     
     // Locals
-    STATIC const mp_rom_map_elem_t mp_led_i80_bus_locals_dict_table[] = {
+    static const mp_rom_map_elem_t mp_led_i80_bus_locals_dict_table[] = {
         { MP_ROM_QSTR(MP_QSTR_add_strip), MP_ROM_PTR(&mp_led_i80_bus_add_strip_obj) },
         { MP_ROM_QSTR(MP_QSTR_show),      MP_ROM_PTR(&mp_led_i80_bus_show_obj) },
         { MP_ROM_QSTR(MP_QSTR_deinit),    MP_ROM_PTR(&mp_led_i80_bus_deinit_obj) },
     };
-    STATIC MP_DEFINE_CONST_DICT(mp_led_i80_bus_locals_dict, mp_led_i80_bus_locals_dict_table);
+    static MP_DEFINE_CONST_DICT(mp_led_i80_bus_locals_dict, mp_led_i80_bus_locals_dict_table);
 
     MP_DEFINE_CONST_OBJ_TYPE(
         mp_led_i80_bus_type,

@@ -67,7 +67,7 @@ static void rgb2rgbw(mp_lcd_led_color_temp *color_temp, uint8_t rgbw[])
     rgbw[1] = round(rgbw[1] - rgbw[3] * (color_temp->g / 255));
     rgbw[2] = round(rgbw[2] - rgbw[3] * (color_temp->b / 255));
 
-    if (color_temp->blue_correct) *w = (*w) - (*b) * 0.2;
+    if (color_temp->blue_correct) rgbw[3] = rgbw[3] - rgbw[2] * 0.2;
 }
 
 
@@ -147,8 +147,8 @@ static mp_obj_t mp_lcd_led_bus_make_new(const mp_obj_type_t *type, size_t n_args
         ARG_ic_type,
         ARG_byte_order,
         ARG_leds_per_pixel,
-        ARG_white_color_temp;
-        ARG_blue_correct;
+        ARG_white_color_temp,
+        ARG_blue_correct,
         ARG_high0,
         ARG_low0,
         ARG_high1,
@@ -251,7 +251,7 @@ static mp_obj_t mp_lcd_led_bus_make_new(const mp_obj_type_t *type, size_t n_args
         case GRB:
             self->rgb_order = (uint8_t *) { 1, 0, 2 };
             break;
-        case GBR
+        case GBR:
             self->rgb_order = (uint8_t *) { 1, 2, 0 };
             break;
         case BRG:
@@ -423,10 +423,10 @@ mp_lcd_err_t led_init(mp_obj_t obj, uint16_t width, uint16_t height, uint8_t bpp
                 .level1 = bit1_level1,
                 .duration1 = bit1_duration1 * self->freq / 1000000000,
             },
-            .flags.msb_first = (uint32_t)self->msb_first;
+            .flags.msb_first = 1
         };
 
-        ESP_ERROR_CHECK(rmt_new_bytes_encoder(&bytes_encoder_config, $self->strip_encoder->bytes_encoder));
+        ESP_ERROR_CHECK(rmt_new_bytes_encoder(&bytes_encoder_config, &self->strip_encoder->bytes_encoder));
         rmt_copy_encoder_config_t copy_encoder_config = {};
         ESP_ERROR_CHECK(rmt_new_copy_encoder(&copy_encoder_config, &self->strip_encoder->copy_encoder));
 
@@ -442,7 +442,7 @@ mp_lcd_err_t led_init(mp_obj_t obj, uint16_t width, uint16_t height, uint8_t bpp
 
         rmt_tx_event_callbacks_t callback = {
             .on_trans_done = &led_rmt_bus_trans_done_cb
-        }
+        };
 
         rmt_tx_register_event_callbacks(self->rmt_chan, &callback, self);
         ESP_ERROR_CHECK(rmt_enable(self->rmt_chan));
@@ -500,42 +500,43 @@ mp_lcd_err_t led_tx_color(mp_obj_t obj, int lcd_cmd, void *color, size_t color_s
     mp_lcd_led_bus_obj_t *self = (mp_lcd_led_bus_obj_t *)obj;
     mp_lcd_err_t err;
     uint8_t tmp_color[4];
+    uint8_t *buf_color = (uint8_t *)color;
 
     if (self->spi_device == NULL) {
         if (self->leds_per_pixel == 4) {
-            for (uint32_t i = color_size - 3;i >= 0;i -= 3) {
-                for (uint8_t j = 0; j < 3; j++) tmp_color[j] = color[i + j];
+            for (int32_t i = color_size - 3;i >= 0;i -= 3) {
+                for (uint8_t j = 0; j < 3; j++) tmp_color[j] = buf_color[i + j];
                 rgb2rgbw(&self->color_temp, tmp_color);
-                for (uint8_t j = 0; j < 3; j++) color[i + rgb_order[j] + self->pixel_count] = tmp_color[j];
-                color[i + 4 + self->pixel_count] = tmp_color[3];
+                for (uint8_t j = 0; j < 3; j++) buf_color[i + self->rgb_order[j] + self->pixel_count] = tmp_color[j];
+                buf_color[i + 4 + self->pixel_count] = tmp_color[3];
             }
         } else {
-            if (pixel_order != RGB) {
-                for (uint32_t i = 0;i < color_size;i += 3) {
-                    for (uint8_t j = 0; j < 3; j++) tmp_color[rgb_order[j]] = color[i + j];
-                    for (uint8_t j = 0; j < 3; j++) color[i + j] = tmp_color[j];
+            if (self->pixel_order != RGB) {
+                for (int32_t i = 0;i < color_size;i += 3) {
+                    for (uint8_t j = 0; j < 3; j++) tmp_color[self->rgb_order[j]] = buf_color[i + j];
+                    for (uint8_t j = 0; j < 3; j++) buf_color[i + j] = tmp_color[j];
                 }
             }
         }
         rmt_transmit_config_t tx_conf = {
             .loop_count = 0,
         };
-        err = rmt_transmit(self->rmt_chan, self->strip_encoder, color, color_size, &tx_conf);
+        err = rmt_transmit(self->rmt_chan, (rmt_encoder_handle_t)self->strip_encoder, buf_color, color_size, &tx_conf);
     } else {
-        for (uint32_t i = color_size - 3;i >= 0;i -= 3) {
-            for (uint8_t j = 0; j < 3; j++) tmp_color[j] = color[i + j];
+        for (int32_t i = color_size - 3;i >= 0;i -= 3) {
+            for (uint8_t j = 0; j < 3; j++) tmp_color[j] = buf_color[i + j];
             rgb2rgbw(&self->color_temp, tmp_color);
-            for (uint8_t j = 0; j < 3; j++) color[i + rgb_order[j] + self->pixel_count + 5] = tmp_color[j];
-            color[i + self->pixel_count + 4] = tmp_color[3] | 0xE0;
+            for (uint8_t j = 0; j < 3; j++) buf_color[i + self->rgb_order[j] + self->pixel_count + 5] = tmp_color[j];
+            buf_color[i + self->pixel_count + 4] = tmp_color[3] | 0xE0;
         }
         for (uint8_t i = 0;i < 4;i++) {
-            color[i] = 0x00;
-            color[i + self->pixel_count * 4] = 0xFF
+            buf_color[i] = 0x00;
+            buf_color[i + self->pixel_count * 4] = 0xFF;
         }
 
         color_size = (size_t)self->pixel_count * 4 + 8;
 
-        err = esp_lcd_panel_io_tx_color(self->panel_io_handle.panel_io, -1, color, color_size);
+        err = esp_lcd_panel_io_tx_color(self->panel_io_handle.panel_io, -1, buf_color, color_size);
     }
 
     if (err == LCD_OK && self->callback == mp_const_none) {

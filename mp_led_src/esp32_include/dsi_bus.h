@@ -38,7 +38,7 @@
 
             lcd_panel_io_t panel_io_handle;
 
-            esp_lcd_dbi_io_config_t panel_io_config;
+            esp_lcd_panel_io_dsi_config_t panel_io_config;
             esp_lcd_dsi_bus_config_t bus_config;
             esp_lcd_dsi_bus_handle_t bus_handle;
             esp_lcd_panel_handle_t panel_handle;

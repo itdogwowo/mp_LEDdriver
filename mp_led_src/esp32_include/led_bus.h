@@ -76,7 +76,7 @@
         mp_lcd_led_bit_timing bit1;
         uint16_t res;
         rmt_channel_handle_t rmt_chan;
-        mp_lcd_led_strip_encoder_t *strip_encoder
+        mp_lcd_led_strip_encoder_t *strip_encoder;
 
         // SPI specific config
         esp_lcd_panel_io_spi_config_t *panel_io_config;
