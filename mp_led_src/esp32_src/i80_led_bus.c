@@ -262,7 +262,9 @@
         }
 
         mp_led_i80_bus_obj_t *self = m_new_obj(mp_led_i80_bus_obj_t);
-        self->base.type = &mp_led_i80_bus_type;
+    memset(self, 0, sizeof(mp_led_i80_bus_obj_t));
+    
+    self->base.type = &mp_led_i80_bus_type;
         self->strips = MP_OBJ_TO_PTR(mp_obj_new_list(0, NULL));
         self->callback = mp_const_none;
         self->buffer_size = 0;
@@ -373,6 +375,7 @@
         { MP_ROM_QSTR(MP_QSTR_add_strip), MP_ROM_PTR(&mp_led_i80_bus_add_strip_obj) },
         { MP_ROM_QSTR(MP_QSTR_show),      MP_ROM_PTR(&mp_led_i80_bus_show_obj) },
         { MP_ROM_QSTR(MP_QSTR_deinit),    MP_ROM_PTR(&mp_led_i80_bus_deinit_obj) },
+        { MP_ROM_QSTR(MP_QSTR___del__),   MP_ROM_PTR(&mp_led_i80_bus_deinit_obj) },
     };
     static MP_DEFINE_CONST_DICT(mp_led_i80_bus_locals_dict, mp_led_i80_bus_locals_dict_table);
 

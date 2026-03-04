@@ -15,3 +15,4 @@ SRC_USERMOD_C += $(MOD_DIR)/esp32_src/i80_led_bus.c
 SRC_USERMOD_C += $(MOD_DIR)/esp32_src/led_bus.c
 SRC_USERMOD_C += $(MOD_DIR)/esp32_src/dsi_bus.c
 SRC_USERMOD_C += $(MOD_DIR)/esp32_src/rgb_bus.c
+SRC_USERMOD_C += $(MOD_DIR)/esp32_src/rgb_bus_rotation.c

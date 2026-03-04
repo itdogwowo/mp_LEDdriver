@@ -7,8 +7,8 @@
 
     // local includes
     #include "lcd_types.h"
-    #include "modlcd_bus.h"
-    #include "rgb_bus.h"
+    #include "modmp_led.h"
+    #include "esp32_include/rgb_bus.h"
 
     // esp-idf includes
     #include "hal/lcd_hal.h"
@@ -69,6 +69,8 @@
 
     mp_obj_t mp_lcd_rgb_bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args)
     {
+        mp_lcd_rgb_bus_deinit_all();
+
         enum {
             ARG_hsync,
             ARG_vsync,
@@ -146,6 +148,8 @@
 
         // create new object
         mp_lcd_rgb_bus_obj_t *self = m_new_obj(mp_lcd_rgb_bus_obj_t);
+        memset(self, 0, sizeof(mp_lcd_rgb_bus_obj_t));
+        
         self->base.type = &mp_lcd_rgb_bus_type;
 
         self->callback = mp_const_none;
@@ -463,7 +467,7 @@
         MP_QSTR_RGBBus,
         MP_TYPE_FLAG_NONE,
         make_new, mp_lcd_rgb_bus_make_new,
-        locals_dict, (mp_obj_dict_t *)&mp_lcd_bus_locals_dict
+        locals_dict, &mp_lcd_bus_locals_dict
     );
 
 #else

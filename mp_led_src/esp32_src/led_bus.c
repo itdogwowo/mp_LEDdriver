@@ -1,6 +1,31 @@
 // Copyright (c) 2024 - 2025 Kevin G. Schlosser
 
 
+// local includes
+#include "lcd_types.h"
+#include "modmp_led.h"
+#include "esp32_include/led_bus.h"
+
+// micropython includes
+
+static uint8_t led_bus_count = 0;
+static mp_lcd_led_bus_obj_t **led_bus_objs;
+
+void mp_lcd_led_bus_deinit_all(void)
+{
+    // we need to copy the existing array to a new one so the order doesn't
+    // get all mucked up when objects get removed.
+    mp_lcd_led_bus_obj_t *objs[led_bus_count];
+
+    for (uint8_t i=0;i<led_bus_count;i++) {
+        objs[i] = led_bus_objs[i];
+    }
+
+    for (uint8_t i=0;i<led_bus_count;i++) {
+        led_del(MP_OBJ_FROM_PTR(objs[i]));
+    }
+}
+
 static bool led_rmt_bus_trans_done_cb(rmt_channel_handle_t tx_chan, const rmt_tx_done_event_data_t *edata, void *user_ctx)
 {
     mp_lcd_led_bus_obj_t *self = (mp_lcd_led_bus_obj_t *)user_ctx;
@@ -141,6 +166,7 @@ static esp_err_t led_reset_strip(rmt_encoder_t *encoder)
     
 static mp_obj_t mp_lcd_led_bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args)
 {
+    mp_lcd_led_bus_deinit_all();
     enum {
         ARG_data_pin,
         ARG_freq,
@@ -186,6 +212,8 @@ static mp_obj_t mp_lcd_led_bus_make_new(const mp_obj_type_t *type, size_t n_args
 
     // create new object
     mp_lcd_led_bus_obj_t *self = m_new_obj(mp_lcd_led_bus_obj_t);
+    memset(self, 0, sizeof(mp_lcd_led_bus_obj_t));
+    
     self->base.type = &mp_lcd_led_bus_type;
 
     self->callback = mp_const_none;
@@ -279,8 +307,45 @@ static mp_obj_t mp_lcd_led_bus_make_new(const mp_obj_type_t *type, size_t n_args
 
 mp_lcd_err_t led_del(mp_obj_t obj)
 {
-    // mp_lcd_led_bus_obj_t *self = (mp_lcd_led_bus_obj_t *)obj;
-    LCD_UNUSED(obj);
+    mp_lcd_led_bus_obj_t *self = (mp_lcd_led_bus_obj_t *)obj;
+    
+    if (self->spi_device != NULL) {
+        machine_hw_spi_bus_remove_device(*self->spi_device);
+        esp_lcd_panel_io_del(self->panel_io_handle.panel_io);
+    } else {
+        rmt_del_channel(self->rmt_chan);
+        led_del_strip((rmt_encoder_t *)self->strip_encoder);
+    }
+
+    if (self->view1 != NULL) {
+        heap_caps_free(self->view1->items);
+        self->view1->items = NULL;
+        self->view1->len = 0;
+        self->view1 = NULL;
+    }
+
+    if (self->view2 != NULL) {
+        heap_caps_free(self->view2->items);
+        self->view2->items = NULL;
+        self->view2->len = 0;
+        self->view2 = NULL;
+    }
+
+    uint8_t i = 0;
+    for (;i<led_bus_count;i++) {
+        if (led_bus_objs[i] == self) {
+            led_bus_objs[i] = NULL;
+            break;
+        }
+    }
+
+    for (uint8_t j=i + 1;j<led_bus_count;j++) {
+        led_bus_objs[j - i + 1] = led_bus_objs[j];
+    }
+
+    led_bus_count--;
+    led_bus_objs = m_realloc(led_bus_objs, led_bus_count * sizeof(mp_lcd_led_bus_obj_t *));
+
     return LCD_OK;
 }
 
@@ -474,6 +539,11 @@ mp_lcd_err_t led_init(mp_obj_t obj, uint16_t width, uint16_t height, uint8_t bpp
         self->view2->len = self->buffer_size;
         heap_caps_free(buf2);
     }
+
+    // add the new bus ONLY after successfull initilization of the bus
+    led_bus_count++;
+    led_bus_objs = m_realloc(led_bus_objs, led_bus_count * sizeof(mp_lcd_led_bus_obj_t *));
+    led_bus_objs[led_bus_count - 1] = self;
 
     return LCD_OK;
 }

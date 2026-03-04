@@ -103,4 +103,6 @@
 
 
     void rgb565_byte_swap(void *buf, uint32_t buf_size_px);
+    extern const mp_obj_dict_t mp_lcd_bus_locals_dict;
+
 #endif /* _LCD_TYPES_H_ */

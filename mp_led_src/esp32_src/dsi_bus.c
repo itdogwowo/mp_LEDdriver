@@ -2,8 +2,8 @@
 
 // local includes
 #include "lcd_types.h"
-#include "modlcd_bus.h"
-#include "dsi_bus.h"
+#include "modmp_led.h"
+#include "esp32_include/dsi_bus.h"
 
 // micropython includes
 #include "mphalport.h"
@@ -17,6 +17,25 @@
 #include "soc/soc_caps.h"
 
 #if SOC_MIPI_DSI_SUPPORTED
+
+    static uint8_t dsi_bus_count = 0;
+    static mp_lcd_dsi_bus_obj_t **dsi_bus_objs;
+
+    void mp_lcd_dsi_bus_deinit_all(void)
+    {
+        // we need to copy the existing array to a new one so the order doesn't
+        // get all mucked up when objects get removed.
+        mp_lcd_dsi_bus_obj_t *objs[dsi_bus_count];
+
+        for (uint8_t i=0;i<dsi_bus_count;i++) {
+            objs[i] = dsi_bus_objs[i];
+        }
+
+        for (uint8_t i=0;i<dsi_bus_count;i++) {
+            dsi_del(MP_OBJ_FROM_PTR(objs[i]));
+        }
+    }
+
     // esp-idf includes
     #include "esp_lcd_panel_ops.h"
     #include "esp_lcd_panel_interface.h"
@@ -64,6 +83,7 @@
 
     static mp_obj_t mp_lcd_dsi_bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args)
     {
+        mp_lcd_dsi_bus_deinit_all();
         enum {
             ARG_bus_id,
             ARG_data_lanes,
@@ -102,6 +122,8 @@
 
         // create new object
         mp_lcd_dsi_bus_obj_t *self = m_new_obj(mp_lcd_dsi_bus_obj_t);
+        memset(self, 0, sizeof(mp_lcd_dsi_bus_obj_t));
+        
         self->base.type = &mp_lcd_dsi_bus_type;
     
         self->callback = mp_const_none;
@@ -150,6 +172,11 @@
         self->panel_io_handle.allocate_framebuffer = &dsi_allocate_framebuffer;
         self->panel_io_handle.free_framebuffer = &dsi_free_framebuffer;
         self->panel_io_handle.init = &dsi_init;
+
+        // add the new bus ONLY after successfull initilization of the bus
+        dsi_bus_count++;
+        dsi_bus_objs = m_realloc(dsi_bus_objs, dsi_bus_count * sizeof(mp_lcd_dsi_bus_obj_t *));
+        dsi_bus_objs[dsi_bus_count - 1] = self;
 
         return MP_OBJ_FROM_PTR(self);
     }
@@ -254,26 +281,46 @@
 
         mp_lcd_dsi_bus_obj_t *self = (mp_lcd_dsi_bus_obj_t *)obj;
 
-        mp_lcd_err_t ret = esp_lcd_panel_del(self->panel_handle);
-        if (ret != 0) {
-            mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("%d(esp_lcd_panel_del)"), ret);
-            return ret;
+        if (self->panel_handle != NULL) {
+            mp_lcd_err_t ret = esp_lcd_panel_del(self->panel_handle);
+            if (ret != 0) {
+                mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("%d(esp_lcd_panel_del)"), ret);
+            }
+            self->panel_handle = NULL;
         }
 
-
-        mp_lcd_err_t ret = esp_lcd_panel_io_del(self->panel_io_handle.panel_io);
-        if (ret != 0) {
-            mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("%d(esp_lcd_panel_io_del)"), ret);
-            return ret;
+        if (self->panel_io_handle.panel_io != NULL) {
+            mp_lcd_err_t ret = esp_lcd_panel_io_del(self->panel_io_handle.panel_io);
+            if (ret != 0) {
+                mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("%d(esp_lcd_panel_io_del)"), ret);
+            }
+            self->panel_io_handle.panel_io = NULL;
         }
 
-        ret = esp_lcd_del_dsi_bus(self->bus_handle);
-        if (ret != 0) {
-            mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("%d(esp_lcd_del_dsi_bus)"), ret);
-            return ret;
+        if (self->bus_handle != NULL) {
+            mp_lcd_err_t ret = esp_lcd_del_dsi_bus(self->bus_handle);
+            if (ret != 0) {
+                mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("%d(esp_lcd_del_dsi_bus)"), ret);
+            }
+            self->bus_handle = NULL;
         }
 
-        return ret;
+        uint8_t i = 0;
+        for (;i<dsi_bus_count;i++) {
+            if (dsi_bus_objs[i] == self) {
+                dsi_bus_objs[i] = NULL;
+                break;
+            }
+        }
+
+        for (uint8_t j=i + 1;j<dsi_bus_count;j++) {
+            dsi_bus_objs[j - i + 1] = dsi_bus_objs[j];
+        }
+
+        dsi_bus_count--;
+        dsi_bus_objs = m_realloc(dsi_bus_objs, dsi_bus_count * sizeof(mp_lcd_dsi_bus_obj_t *));
+
+        return LCD_OK;
     }
 
     mp_lcd_err_t dsi_get_lane_count(mp_obj_t obj, uint8_t *lane_count)
@@ -411,7 +458,7 @@
         MP_QSTR_DSIBus,
         MP_TYPE_FLAG_NONE,
         make_new, mp_lcd_dsi_bus_make_new,
-        locals_dict, (mp_obj_dict_t *)&mp_lcd_bus_locals_dict
+        locals_dict, &mp_lcd_bus_locals_dict
     );
 
 #endif /*SOC_MIPI_DSI_SUPPORTED*/
