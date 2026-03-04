@@ -3,6 +3,9 @@
 // local includes
 #include "modmp_led.h"
 #include "esp32_include/i80_led_bus.h"
+#include "esp32_include/led_bus.h"
+#include "esp32_include/dsi_bus.h"
+#include "esp32_include/rgb_bus.h"
 
 // micropython includes
 #include "py/obj.h"
@@ -19,6 +22,16 @@ static const mp_rom_map_elem_t mp_module_mp_led_globals_table[] = {
     
     #if SOC_LCD_I80_SUPPORTED
         { MP_ROM_QSTR(MP_QSTR_I8080_Bus),      MP_ROM_PTR(&mp_led_i80_bus_type)       },
+    #endif
+
+    { MP_ROM_QSTR(MP_QSTR_LEDBus),         MP_ROM_PTR(&mp_lcd_led_bus_type)       },
+
+    #if SOC_LCD_DSI_SUPPORTED
+        { MP_ROM_QSTR(MP_QSTR_DSIBus),         MP_ROM_PTR(&mp_lcd_dsi_bus_type)       },
+    #endif
+
+    #if SOC_LCD_RGB_SUPPORTED
+        { MP_ROM_QSTR(MP_QSTR_RGBBus),         MP_ROM_PTR(&mp_lcd_rgb_bus_type)       },
     #endif
 
     // Memory constants

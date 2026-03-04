@@ -14,6 +14,9 @@ if(ESP_PLATFORM)
         ${CMAKE_CURRENT_LIST_DIR}/modmp_led.c
         ${CMAKE_CURRENT_LIST_DIR}/lcd_types.c
         ${CMAKE_CURRENT_LIST_DIR}/esp32_src/i80_led_bus.c
+        ${CMAKE_CURRENT_LIST_DIR}/esp32_src/led_bus.c
+        ${CMAKE_CURRENT_LIST_DIR}/esp32_src/dsi_bus.c
+        ${CMAKE_CURRENT_LIST_DIR}/esp32_src/rgb_bus.c
     )
 
     # gets esp_lcd include paths

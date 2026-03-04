@@ -41,6 +41,8 @@
     mp_lcd_err_t i80_led_get_lane_count(mp_obj_t obj, uint8_t *lane_count);
     
     // Forward declarations
+    static uint8_t i80_bus_count = 0;
+    static mp_led_i80_bus_obj_t **i80_bus_objs = NULL;
 
     static bool i80_led_bus_trans_done_cb(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
     {
@@ -241,15 +243,23 @@
     // Constructor
     static mp_obj_t mp_led_i80_bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args)
     {
-        enum { ARG_data_pins, ARG_clk, ARG_freq, ARG_dma_size };
+        enum { ARG_data_pins, ARG_clk, ARG_dc, ARG_freq, ARG_dma_size };
         static const mp_arg_t allowed_args[] = {
             { MP_QSTR_data_pins, MP_ARG_OBJ | MP_ARG_REQUIRED },
             { MP_QSTR_clk,       MP_ARG_INT | MP_ARG_REQUIRED },
+            { MP_QSTR_dc,        MP_ARG_INT | MP_ARG_REQUIRED },
             { MP_QSTR_freq,      MP_ARG_INT | MP_ARG_KW_ONLY, { .u_int = 10000000 } },
             { MP_QSTR_dma_size,  MP_ARG_INT | MP_ARG_KW_ONLY, { .u_int = 64000 } },
         };
         mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
         mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+        // Check if we need to clean up old buses (Soft Reboot handling)
+        // If we are creating a new bus, and there are existing ones, it's safer to clear them
+        // to avoid pin conflicts or resource exhaustion, especially during development.
+        if (i80_bus_count > 0) {
+            mp_led_i80_bus_deinit_all();
+        }
 
         mp_led_i80_bus_obj_t *self = m_new_obj(mp_led_i80_bus_obj_t);
         self->base.type = &mp_led_i80_bus_type;
@@ -269,7 +279,7 @@
 
         // Configure Bus
         memset(&self->bus_config, 0, sizeof(self->bus_config));
-        self->bus_config.dc_gpio_num = -1;
+        self->bus_config.dc_gpio_num = args[ARG_dc].u_int;
         self->bus_config.wr_gpio_num = args[ARG_clk].u_int;
         self->bus_config.clk_src = LCD_CLK_SRC_PLL160M; // or DEFAULT
         self->bus_config.bus_width = num_pins;
@@ -307,6 +317,11 @@
              mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("esp_lcd_new_panel_io_i80 failed: %d"), ret);
         }
 
+        // Add to global list
+        i80_bus_count++;
+        i80_bus_objs = m_realloc(i80_bus_objs, i80_bus_count * sizeof(mp_led_i80_bus_obj_t *));
+        i80_bus_objs[i80_bus_count - 1] = self;
+
         return MP_OBJ_FROM_PTR(self);
     }
     
@@ -321,8 +336,36 @@
             esp_lcd_del_i80_bus(self->bus_handle);
             self->bus_handle = NULL;
         }
+        
+        // Remove from global list
+        if (i80_bus_objs) {
+            for (int i = 0; i < i80_bus_count; i++) {
+                if (i80_bus_objs[i] == self) {
+                    // Shift remaining
+                    for (int j = i; j < i80_bus_count - 1; j++) {
+                        i80_bus_objs[j] = i80_bus_objs[j+1];
+                    }
+                    i80_bus_count--;
+                    if (i80_bus_count == 0) {
+                        m_free(i80_bus_objs);
+                        i80_bus_objs = NULL;
+                    } else {
+                        i80_bus_objs = m_realloc(i80_bus_objs, i80_bus_count * sizeof(mp_led_i80_bus_obj_t *));
+                    }
+                    break;
+                }
+            }
+        }
+        
         return mp_const_none;
     }
+
+    static void mp_led_i80_bus_deinit_all(void) {
+        while (i80_bus_count > 0) {
+            mp_led_i80_bus_deinit(MP_OBJ_FROM_PTR(i80_bus_objs[0]));
+        }
+    }
+    
     static MP_DEFINE_CONST_FUN_OBJ_1(mp_led_i80_bus_deinit_obj, mp_led_i80_bus_deinit);
     
     // Locals
