@@ -13,7 +13,7 @@
 static const char *TAG = "I8080_BUS";
 
 // Constructor
-STATIC mp_obj_t i8080_bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
+static mp_obj_t i8080_bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     enum { ARG_data_pins, ARG_clk, ARG_freq, ARG_dma_size };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_data_pins, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = mp_const_none} },
@@ -93,7 +93,7 @@ STATIC mp_obj_t i8080_bus_make_new(const mp_obj_type_t *type, size_t n_args, siz
 }
 
 // Add Strip
-STATIC mp_obj_t i8080_bus_add_strip(size_t n_args, const mp_obj_t *args) {
+static mp_obj_t i8080_bus_add_strip(size_t n_args, const mp_obj_t *args) {
     mp_obj_i8080_bus_t *self = MP_OBJ_TO_PTR(args[0]);
     int pin_index = mp_obj_get_int(args[1]);
     int length = mp_obj_get_int(args[2]);
@@ -112,10 +112,10 @@ STATIC mp_obj_t i8080_bus_add_strip(size_t n_args, const mp_obj_t *args) {
     
     return strip;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(i8080_bus_add_strip_obj, 4, 4, i8080_bus_add_strip);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(i8080_bus_add_strip_obj, 4, 4, i8080_bus_add_strip);
 
 // Show (Render and DMA Transfer)
-STATIC mp_obj_t i8080_bus_show(mp_obj_t self_in) {
+static mp_obj_t i8080_bus_show(mp_obj_t self_in) {
     mp_obj_i8080_bus_t *self = MP_OBJ_TO_PTR(self_in);
     
     // 1. Clear DMA Buffer (memset 0)
@@ -141,10 +141,10 @@ STATIC mp_obj_t i8080_bus_show(mp_obj_t self_in) {
     
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(i8080_bus_show_obj, i8080_bus_show);
+static MP_DEFINE_CONST_FUN_OBJ_1(i8080_bus_show_obj, i8080_bus_show);
 
 // Write (Direct buffer write, for debugging or custom usage)
-STATIC mp_obj_t i8080_bus_write(size_t n_args, const mp_obj_t *args) {
+static mp_obj_t i8080_bus_write(size_t n_args, const mp_obj_t *args) {
     mp_obj_i8080_bus_t *self = MP_OBJ_TO_PTR(args[0]);
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(args[1], &bufinfo, MP_BUFFER_READ);
@@ -168,10 +168,10 @@ STATIC mp_obj_t i8080_bus_write(size_t n_args, const mp_obj_t *args) {
     
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(i8080_bus_write_obj, 2, 2, i8080_bus_write);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(i8080_bus_write_obj, 2, 2, i8080_bus_write);
 
 // Deinit
-STATIC mp_obj_t i8080_bus_deinit(mp_obj_t self_in) {
+static mp_obj_t i8080_bus_deinit(mp_obj_t self_in) {
     mp_obj_i8080_bus_t *self = MP_OBJ_TO_PTR(self_in);
     if (self->io_handle) {
         esp_lcd_panel_io_del(self->io_handle);
@@ -187,16 +187,16 @@ STATIC mp_obj_t i8080_bus_deinit(mp_obj_t self_in) {
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(i8080_bus_deinit_obj, i8080_bus_deinit);
+static MP_DEFINE_CONST_FUN_OBJ_1(i8080_bus_deinit_obj, i8080_bus_deinit);
 
 // Local Dictionary
-STATIC const mp_rom_map_elem_t i8080_bus_locals_dict_table[] = {
+static const mp_rom_map_elem_t i8080_bus_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&i8080_bus_deinit_obj) },
     { MP_ROM_QSTR(MP_QSTR_add_strip), MP_ROM_PTR(&i8080_bus_add_strip_obj) },
     { MP_ROM_QSTR(MP_QSTR_show), MP_ROM_PTR(&i8080_bus_show_obj) },
     { MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&i8080_bus_write_obj) },
 };
-STATIC MP_DEFINE_CONST_DICT(i8080_bus_locals_dict, i8080_bus_locals_dict_table);
+static MP_DEFINE_CONST_DICT(i8080_bus_locals_dict, i8080_bus_locals_dict_table);
 
 // Type Definition
 const mp_obj_type_t mp_type_I8080_Bus = {

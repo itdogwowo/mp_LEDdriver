@@ -4,8 +4,8 @@
 
 // Forward declaration of strip type and locals dict
 const mp_obj_type_t mp_type_Strip;
-STATIC const mp_rom_map_elem_t strip_locals_dict_table[];
-STATIC MP_DEFINE_CONST_DICT(strip_locals_dict, strip_locals_dict_table);
+static const mp_rom_map_elem_t strip_locals_dict_table[];
+static MP_DEFINE_CONST_DICT(strip_locals_dict, strip_locals_dict_table);
 
 // Constructor (Called by Bus.add_strip)
 mp_obj_t strip_make_new(mp_obj_i8080_bus_t *bus, int pin_index, int length, int type) {
@@ -24,7 +24,7 @@ mp_obj_t strip_make_new(mp_obj_i8080_bus_t *bus, int pin_index, int length, int 
 }
 
 // Attribute Access (.buf)
-STATIC void strip_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
+static void strip_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
     if (dest[0] == MP_OBJ_NULL) {
         // Load attribute
         mp_obj_strip_t *self = MP_OBJ_TO_PTR(self_in);
@@ -54,7 +54,7 @@ STATIC void strip_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
 }
 
 // __setitem__ implementation
-STATIC mp_obj_t strip_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t value) {
+static mp_obj_t strip_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t value) {
     mp_obj_strip_t *self = MP_OBJ_TO_PTR(self_in);
     
     // Get raw pointer from bytearray
@@ -147,10 +147,10 @@ void encode_strip_to_buffer(mp_obj_strip_t *strip, uint8_t *buffer, size_t buffe
 }
 
 // Locals Dict (Empty for now, but good to have)
-STATIC const mp_rom_map_elem_t strip_locals_dict_table[] = {
+static const mp_rom_map_elem_t strip_locals_dict_table[] = {
     // Add methods here if needed
 };
-STATIC MP_DEFINE_CONST_DICT(strip_locals_dict, strip_locals_dict_table);
+static MP_DEFINE_CONST_DICT(strip_locals_dict, strip_locals_dict_table);
 
 // Type Definition
 const mp_obj_type_t mp_type_Strip = {
