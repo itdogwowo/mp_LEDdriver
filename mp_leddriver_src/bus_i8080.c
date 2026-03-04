@@ -48,7 +48,9 @@ static mp_obj_t i8080_bus_make_new(const mp_obj_type_t *type, size_t n_args, siz
     // Initialize Bus
     esp_err_t ret = esp_lcd_new_i80_bus(&bus_config, &self->i80_bus);
     if (ret != ESP_OK) {
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("Failed to init I8080 bus: %d"), ret);
+        // Try to deinit potentially partially initialized stuff or just raise
+        // Common error 258 (ESP_ERR_INVALID_ARG) often comes from invalid pin combinations or clock sources
+        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("Failed to init I8080 bus: %d (Check pins/clocks)"), ret);
     }
 
     // Configure Panel IO
@@ -62,6 +64,9 @@ static mp_obj_t i8080_bus_make_new(const mp_obj_type_t *type, size_t n_args, siz
             .dc_dummy_level = 0,
             .dc_data_level = 0,
         },
+        // IMPORTANT: Must set cmd/param bits to 0 for pure data transfer if not using LCD controller
+        .lcd_cmd_bits = 0,
+        .lcd_param_bits = 0,
     };
     
     ret = esp_lcd_new_panel_io_i80(self->i80_bus, &io_config, &self->io_handle);
