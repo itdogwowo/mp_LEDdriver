@@ -10,8 +10,6 @@
 #include "esp_memory_utils.h"
 #include <string.h> // For memset
 
-static const char *TAG = "I8080_BUS";
-
 // Constructor
 static mp_obj_t i8080_bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     enum { ARG_data_pins, ARG_clk, ARG_freq, ARG_dma_size };
@@ -36,7 +34,7 @@ static mp_obj_t i8080_bus_make_new(const mp_obj_type_t *type, size_t n_args, siz
         .clk_src = LCD_CLK_SRC_DEFAULT,
         .dc_gpio_num = -1,
         .wr_gpio_num = args[ARG_clk].u_int,
-        .data_width = self->data_width,
+        .bus_width = self->data_width,
         .max_transfer_bytes = args[ARG_dma_size].u_int,
         .psram_trans_align = 64,
         .sram_trans_align = 4,

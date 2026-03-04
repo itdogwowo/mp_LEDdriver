@@ -42,7 +42,7 @@ static void strip_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
         } else {
             // Check locals_dict for methods
             // Access the dictionary directly since we defined it statically
-            mp_map_elem_t *elem = mp_map_lookup(&strip_locals_dict.map, MP_OBJ_NEW_QSTR(attr), MP_MAP_LOOKUP);
+            mp_map_elem_t *elem = mp_map_lookup((mp_map_t*)&strip_locals_dict.map, MP_OBJ_NEW_QSTR(attr), MP_MAP_LOOKUP);
             if (elem != NULL) {
                 mp_convert_member_lookup(self_in, self->base.type, elem->value, dest);
             }
