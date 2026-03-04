@@ -105,6 +105,49 @@
         attr, led_strip_attr
     );
 
+    // Deinit
+    static mp_obj_t mp_led_i80_bus_deinit(mp_obj_t self_in) {
+        mp_led_i80_bus_obj_t *self = MP_OBJ_TO_PTR(self_in);
+        if (self->io_handle) {
+            esp_lcd_panel_io_del(self->io_handle);
+            self->io_handle = NULL;
+        }
+        if (self->bus_handle) {
+            esp_lcd_del_i80_bus(self->bus_handle);
+            self->bus_handle = NULL;
+        }
+        
+        // Remove from global list
+        if (i80_bus_objs) {
+            for (int i = 0; i < i80_bus_count; i++) {
+                if (i80_bus_objs[i] == self) {
+                    // Shift remaining
+                    for (int j = i; j < i80_bus_count - 1; j++) {
+                        i80_bus_objs[j] = i80_bus_objs[j+1];
+                    }
+                    i80_bus_count--;
+                    if (i80_bus_count == 0) {
+                        m_free(i80_bus_objs);
+                        i80_bus_objs = NULL;
+                    } else {
+                        i80_bus_objs = m_realloc(i80_bus_objs, i80_bus_count * sizeof(mp_led_i80_bus_obj_t *));
+                    }
+                    break;
+                }
+            }
+        }
+        
+        return mp_const_none;
+    }
+
+    static void mp_led_i80_bus_deinit_all(void) {
+        while (i80_bus_count > 0) {
+            mp_led_i80_bus_deinit(MP_OBJ_FROM_PTR(i80_bus_objs[0]));
+        }
+    }
+    
+    static MP_DEFINE_CONST_FUN_OBJ_1(mp_led_i80_bus_deinit_obj, mp_led_i80_bus_deinit);
+
     // I8080 Bus Implementation
 
     static mp_obj_t mp_led_i80_bus_add_strip(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
@@ -326,49 +369,6 @@
 
         return MP_OBJ_FROM_PTR(self);
     }
-    
-    // Deinit
-    static mp_obj_t mp_led_i80_bus_deinit(mp_obj_t self_in) {
-        mp_led_i80_bus_obj_t *self = MP_OBJ_TO_PTR(self_in);
-        if (self->io_handle) {
-            esp_lcd_panel_io_del(self->io_handle);
-            self->io_handle = NULL;
-        }
-        if (self->bus_handle) {
-            esp_lcd_del_i80_bus(self->bus_handle);
-            self->bus_handle = NULL;
-        }
-        
-        // Remove from global list
-        if (i80_bus_objs) {
-            for (int i = 0; i < i80_bus_count; i++) {
-                if (i80_bus_objs[i] == self) {
-                    // Shift remaining
-                    for (int j = i; j < i80_bus_count - 1; j++) {
-                        i80_bus_objs[j] = i80_bus_objs[j+1];
-                    }
-                    i80_bus_count--;
-                    if (i80_bus_count == 0) {
-                        m_free(i80_bus_objs);
-                        i80_bus_objs = NULL;
-                    } else {
-                        i80_bus_objs = m_realloc(i80_bus_objs, i80_bus_count * sizeof(mp_led_i80_bus_obj_t *));
-                    }
-                    break;
-                }
-            }
-        }
-        
-        return mp_const_none;
-    }
-
-    static void mp_led_i80_bus_deinit_all(void) {
-        while (i80_bus_count > 0) {
-            mp_led_i80_bus_deinit(MP_OBJ_FROM_PTR(i80_bus_objs[0]));
-        }
-    }
-    
-    static MP_DEFINE_CONST_FUN_OBJ_1(mp_led_i80_bus_deinit_obj, mp_led_i80_bus_deinit);
     
     // Locals
     static const mp_rom_map_elem_t mp_led_i80_bus_locals_dict_table[] = {

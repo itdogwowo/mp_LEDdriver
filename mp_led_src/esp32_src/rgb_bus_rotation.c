@@ -315,7 +315,7 @@
         *to++ = *from++;
     }
 
-    void copy_pixels(void *dst, void *src, uint32_t x_start, uint32_t y_start,
+    static void copy_pixels(void *dst, void *src, uint32_t x_start, uint32_t y_start,
             uint32_t x_end, uint32_t y_end, uint32_t dst_width, uint32_t dst_height,
             uint32_t bytes_per_pixel, uint8_t rotate, uint8_t rgb565_dither)
     {
