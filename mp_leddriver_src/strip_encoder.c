@@ -4,8 +4,7 @@
 
 // Forward declaration of strip type and locals dict
 const mp_obj_type_t mp_type_Strip;
-static const mp_rom_map_elem_t strip_locals_dict_table[];
-static MP_DEFINE_CONST_DICT(strip_locals_dict, strip_locals_dict_table);
+// Removed static MP_DEFINE_CONST_DICT forward declaration to avoid MP_ARRAY_SIZE error
 
 // Constructor (Called by Bus.add_strip)
 mp_obj_t strip_make_new(mp_obj_i8080_bus_t *bus, int pin_index, int length, int type) {
@@ -17,8 +16,8 @@ mp_obj_t strip_make_new(mp_obj_i8080_bus_t *bus, int pin_index, int length, int 
     self->bpp = 3; // Default to RGB, TODO: Support RGBW
     
     // Allocate pixel buffer as bytearray
-    // This allows Python access via strip.buf
-    self->pixel_buf = mp_obj_new_bytearray_of_zeros(length * self->bpp);
+    // Use modern API: mp_obj_new_bytearray(size, items)
+    self->pixel_buf = mp_obj_new_bytearray(length * self->bpp, NULL);
     
     return MP_OBJ_FROM_PTR(self);
 }
@@ -152,11 +151,12 @@ static const mp_rom_map_elem_t strip_locals_dict_table[] = {
 };
 static MP_DEFINE_CONST_DICT(strip_locals_dict, strip_locals_dict_table);
 
-// Type Definition
-const mp_obj_type_t mp_type_Strip = {
-    { &mp_type_type },
-    .name = MP_QSTR_Strip,
-    .subscr = strip_subscr,
-    .attr = strip_attr,
-    .locals_dict = (mp_obj_dict_t *)&strip_locals_dict,
-};
+// Type Definition using modern macro
+MP_DEFINE_CONST_OBJ_TYPE(
+    mp_type_Strip,
+    MP_QSTR_Strip,
+    MP_TYPE_FLAG_NONE,
+    attr, strip_attr,
+    subscr, strip_subscr,
+    locals_dict, &strip_locals_dict
+);
