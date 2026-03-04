@@ -13,15 +13,24 @@ target_include_directories(mp_leddriver_lib INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}
 )
 
-# Add dependency on ESP-IDF components
-# This ensures header paths for esp_lcd, driver, and heap_caps are available
-# We link them to OUR library, which then propagates to usermod
-target_link_libraries(mp_leddriver_lib INTERFACE 
-    idf::esp_lcd 
-    idf::driver
-    idf::esp_hw_support 
-    idf::esp_common
-)
-
 # Link to the main MicroPython target
 target_link_libraries(usermod INTERFACE mp_leddriver_lib)
+
+# ----------------------------------------------------------------
+# FORCE INCLUDE ESP-IDF COMPONENT HEADERS
+# ----------------------------------------------------------------
+# Iterate over required components and force their include directories
+# into the usermod target. This bypasses any linkage propagation issues.
+
+foreach(comp esp_lcd driver esp_hw_support esp_common log heap)
+    if(TARGET idf::${comp})
+        # Link the component (standard way)
+        target_link_libraries(usermod INTERFACE idf::${comp})
+        
+        # Force include directories (backup way)
+        get_target_property(inc_dirs idf::${comp} INTERFACE_INCLUDE_DIRECTORIES)
+        if(inc_dirs)
+            target_include_directories(usermod INTERFACE ${inc_dirs})
+        endif()
+    endif()
+endforeach()
