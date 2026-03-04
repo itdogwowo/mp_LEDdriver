@@ -36,7 +36,7 @@ struct _mp_obj_strip_t {
     int pin_index;
     int length;
     int bpp;
-    uint8_t *pixel_data;
+    mp_obj_t pixel_buf; // Python bytearray object
 };
 
 // Function declarations
@@ -44,6 +44,6 @@ extern const mp_obj_type_t mp_type_I8080_Bus;
 extern const mp_obj_type_t mp_type_Strip;
 
 mp_obj_t strip_make_new(mp_obj_i8080_bus_t *bus, int pin_index, int length, int type);
-void encode_strip_to_buffer(mp_obj_strip_t *strip, uint8_t *buffer);
+void encode_strip_to_buffer(mp_obj_strip_t *strip, uint8_t *buffer, size_t buffer_size);
 
 #endif // MP_LEDDRIVER_H

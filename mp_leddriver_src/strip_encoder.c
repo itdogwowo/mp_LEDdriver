@@ -2,8 +2,10 @@
 #include "mp_leddriver.h"
 #include <string.h>
 
-// Forward declaration of strip type
+// Forward declaration of strip type and locals dict
 const mp_obj_type_t mp_type_Strip;
+STATIC const mp_rom_map_elem_t strip_locals_dict_table[];
+STATIC MP_DEFINE_CONST_DICT(strip_locals_dict, strip_locals_dict_table);
 
 // Constructor (Called by Bus.add_strip)
 mp_obj_t strip_make_new(mp_obj_i8080_bus_t *bus, int pin_index, int length, int type) {
@@ -14,16 +16,51 @@ mp_obj_t strip_make_new(mp_obj_i8080_bus_t *bus, int pin_index, int length, int 
     self->length = length;
     self->bpp = 3; // Default to RGB, TODO: Support RGBW
     
-    // Allocate pixel buffer
-    self->pixel_data = m_new(uint8_t, length * self->bpp);
-    memset(self->pixel_data, 0, length * self->bpp);
+    // Allocate pixel buffer as bytearray
+    // This allows Python access via strip.buf
+    self->pixel_buf = mp_obj_new_bytearray_of_zeros(length * self->bpp);
     
     return MP_OBJ_FROM_PTR(self);
+}
+
+// Attribute Access (.buf)
+STATIC void strip_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
+    if (dest[0] == MP_OBJ_NULL) {
+        // Load attribute
+        mp_obj_strip_t *self = MP_OBJ_TO_PTR(self_in);
+        if (attr == MP_QSTR_buf) {
+            dest[0] = self->pixel_buf;
+        } else {
+            // Check locals_dict for methods
+            mp_map_elem_t *elem = mp_map_lookup(&mp_type_Strip.locals_dict->map, MP_OBJ_NEW_QSTR(attr), MP_MAP_LOOKUP);
+            if (elem != NULL) {
+                mp_convert_member_lookup(self_in, self->base.type, elem->value, dest);
+            }
+        }
+    } else {
+        // Store/Delete attribute
+        if (attr == MP_QSTR_buf && dest[1] != MP_OBJ_NULL) {
+             mp_obj_strip_t *self = MP_OBJ_TO_PTR(self_in);
+             // Verify type and size
+             mp_buffer_info_t bufinfo;
+             mp_get_buffer_raise(dest[1], &bufinfo, MP_BUFFER_READ);
+             if (bufinfo.len != self->length * self->bpp) {
+                 mp_raise_ValueError("Buffer size mismatch");
+             }
+             self->pixel_buf = dest[1];
+             dest[0] = MP_OBJ_NULL; // Success
+        }
+    }
 }
 
 // __setitem__ implementation
 STATIC mp_obj_t strip_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t value) {
     mp_obj_strip_t *self = MP_OBJ_TO_PTR(self_in);
+    
+    // Get raw pointer from bytearray
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(self->pixel_buf, &bufinfo, MP_BUFFER_WRITE);
+    uint8_t *pixel_data = bufinfo.buf;
     
     if (value == MP_OBJ_SENTINEL) { // Load
         // Return tuple (r, g, b)
@@ -32,9 +69,9 @@ STATIC mp_obj_t strip_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t value) {
             mp_raise_ValueError("Index out of range");
         }
         mp_obj_t tuple[3];
-        tuple[0] = mp_obj_new_int(self->pixel_data[idx*3 + 0]);
-        tuple[1] = mp_obj_new_int(self->pixel_data[idx*3 + 1]);
-        tuple[2] = mp_obj_new_int(self->pixel_data[idx*3 + 2]);
+        tuple[0] = mp_obj_new_int(pixel_data[idx*3 + 0]);
+        tuple[1] = mp_obj_new_int(pixel_data[idx*3 + 1]);
+        tuple[2] = mp_obj_new_int(pixel_data[idx*3 + 2]);
         return mp_obj_new_tuple(3, tuple);
     } else { // Store
         int idx = mp_obj_get_int(index);
@@ -49,9 +86,9 @@ STATIC mp_obj_t strip_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t value) {
             mp_raise_ValueError("Color must be (r, g, b)");
         }
         
-        self->pixel_data[idx*3 + 0] = mp_obj_get_int(items[0]);
-        self->pixel_data[idx*3 + 1] = mp_obj_get_int(items[1]);
-        self->pixel_data[idx*3 + 2] = mp_obj_get_int(items[2]);
+        pixel_data[idx*3 + 0] = mp_obj_get_int(items[0]);
+        pixel_data[idx*3 + 1] = mp_obj_get_int(items[1]);
+        pixel_data[idx*3 + 2] = mp_obj_get_int(items[2]);
         
         return mp_const_none;
     }
@@ -61,15 +98,26 @@ STATIC mp_obj_t strip_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t value) {
 // Assuming 10MHz clock -> 100ns per sample
 // Bit 0: 400ns High (4 samples), 850ns Low (9 samples) -> Total 13 samples
 // Bit 1: 800ns High (8 samples), 450ns Low (5 samples) -> Total 13 samples
-void encode_strip_to_buffer(mp_obj_strip_t *strip, uint8_t *buffer) {
+void encode_strip_to_buffer(mp_obj_strip_t *strip, uint8_t *buffer, size_t buffer_size) {
     // Check if buffer is valid
     if (buffer == NULL) return;
     
+    // Get raw pointer from bytearray
+    mp_buffer_info_t bufinfo;
+    if (!mp_get_buffer(strip->pixel_buf, &bufinfo, MP_BUFFER_READ)) return;
+    uint8_t *pixel_data = bufinfo.buf;
+    
     // Iterate pixels
     for (int i = 0; i < strip->length; i++) {
-        uint8_t r = strip->pixel_data[i*3 + 0];
-        uint8_t g = strip->pixel_data[i*3 + 1];
-        uint8_t b = strip->pixel_data[i*3 + 2];
+        // Safety check: ensure we don't write past buffer end
+        // Each pixel takes 312 bytes (24 * 13)
+        if ((i + 1) * 312 > buffer_size) {
+            break; // Stop encoding to prevent overflow
+        }
+
+        uint8_t r = pixel_data[i*3 + 0];
+        uint8_t g = pixel_data[i*3 + 1];
+        uint8_t b = pixel_data[i*3 + 2];
         
         // GRB Order for WS2812
         uint32_t color = (g << 16) | (r << 8) | b;
@@ -98,9 +146,17 @@ void encode_strip_to_buffer(mp_obj_strip_t *strip, uint8_t *buffer) {
     }
 }
 
+// Locals Dict (Empty for now, but good to have)
+STATIC const mp_rom_map_elem_t strip_locals_dict_table[] = {
+    // Add methods here if needed
+};
+STATIC MP_DEFINE_CONST_DICT(strip_locals_dict, strip_locals_dict_table);
+
 // Type Definition
 const mp_obj_type_t mp_type_Strip = {
     { &mp_type_type },
     .name = MP_QSTR_Strip,
     .subscr = strip_subscr,
+    .attr = strip_attr,
+    .locals_dict = (mp_obj_dict_t *)&strip_locals_dict,
 };

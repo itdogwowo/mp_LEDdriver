@@ -14,12 +14,12 @@ static const char *TAG = "I8080_BUS";
 
 // Constructor
 STATIC mp_obj_t i8080_bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
-    enum { ARG_data_pins, ARG_clk, ARG_freq, ARG_max_transfer_sz };
+    enum { ARG_data_pins, ARG_clk, ARG_freq, ARG_dma_size };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_data_pins, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = mp_const_none} },
         { MP_QSTR_clk, MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = -1} },
         { MP_QSTR_freq, MP_ARG_INT, {.u_int = 10000000} }, // Default 10MHz
-        { MP_QSTR_max_transfer_sz, MP_ARG_INT, {.u_int = 64000} },
+        { MP_QSTR_dma_size, MP_ARG_INT, {.u_int = 64000} },
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
@@ -37,7 +37,7 @@ STATIC mp_obj_t i8080_bus_make_new(const mp_obj_type_t *type, size_t n_args, siz
         .dc_gpio_num = -1,
         .wr_gpio_num = args[ARG_clk].u_int,
         .data_width = self->data_width,
-        .max_transfer_bytes = args[ARG_max_transfer_sz].u_int,
+        .max_transfer_bytes = args[ARG_dma_size].u_int,
         .psram_trans_align = 64,
         .sram_trans_align = 4,
     };
@@ -76,7 +76,7 @@ STATIC mp_obj_t i8080_bus_make_new(const mp_obj_type_t *type, size_t n_args, siz
     // We assume max possible usage for now, or dynamic resize later.
     // For WS2812: 1 pixel = 24 bits * 13 samples = 312 bytes.
     // Let's allocate based on max_transfer_sz for now.
-    self->dma_buffer_size = args[ARG_max_transfer_sz].u_int;
+    self->dma_buffer_size = args[ARG_dma_size].u_int;
     self->dma_buffer = heap_caps_malloc(self->dma_buffer_size, MALLOC_CAP_DMA);
     if (!self->dma_buffer) {
         // Cleanup
@@ -129,7 +129,7 @@ STATIC mp_obj_t i8080_bus_show(mp_obj_t self_in) {
     for (size_t i = 0; i < num_strips; i++) {
         mp_obj_strip_t *strip = MP_OBJ_TO_PTR(strips[i]);
         // TODO: Check buffer bounds
-        encode_strip_to_buffer(strip, (uint8_t *)self->dma_buffer);
+        encode_strip_to_buffer(strip, (uint8_t *)self->dma_buffer, self->dma_buffer_size);
     }
     
     // 3. Trigger DMA

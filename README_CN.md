@@ -39,7 +39,7 @@ bus = mp_leddriver.I8080_Bus(
     data_pins=[1, 2, 3, 4, 5, 6, 7, 8],  # D0 ~ D7
     clk=9,                               # WR (Write Clock) 引腳
     freq=10000000,                       # 10MHz (WS2812 推薦頻率)
-    max_transfer_sz=64000                # 最大 DMA 緩衝區大小 (字節)
+    dma_size=64000                       # 最大 DMA 緩衝區大小 (字節)
 )
 
 print("Bus initialized")
@@ -89,6 +89,28 @@ print(f"LED 0 Color: {r}, {g}, {b}")
 3.  啟動 DMA 傳輸。
 
 ```python
+bus.show()
+```
+
+### 2.5 高性能操作：直接訪問緩衝區
+
+每個 Strip 對象都有一個 `.buf` 屬性（`bytearray` 類型），存儲了底層的像素數據 (R, G, B)。你可以直接讀寫它，或者將其傳遞給 `viper` 函數進行極速運算。
+
+```python
+# 直接修改 buffer (比 strip[i] = color 快)
+# 將所有像素設置為紅色
+for i in range(len(strip.buf) // 3):
+    strip.buf[i*3] = 255     # R
+    strip.buf[i*3+1] = 0     # G
+    strip.buf[i*3+2] = 0     # B
+
+# 使用 Viper 優化
+@micropython.viper
+def fast_fill(buf: ptr8, length: int):
+    for i in range(length):
+        buf[i] = 0xFF
+
+fast_fill(strip.buf, len(strip.buf))
 bus.show()
 ```
 
