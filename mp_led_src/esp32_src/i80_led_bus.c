@@ -11,6 +11,7 @@
 #include "py/runtime.h"
 #include "py/gc.h"
 #include "py/binary.h"
+#include "py/objarray.h"
 
 // stdlib includes
 #include <string.h>
@@ -41,7 +42,7 @@
     
     // Forward declarations
 
-    static bool i80_led_bus_trans_done_cb(esp_lcd_panel_io_handle_t panel_io, const esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
+    static bool i80_led_bus_trans_done_cb(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
     {
         mp_led_i80_bus_obj_t *self = (mp_led_i80_bus_obj_t *)user_ctx;
         self->trans_done = true;
@@ -124,7 +125,9 @@
         strip->bus = self;
 
         // Allocate buffer for strip (R,G,B per pixel)
-        strip->buf = MP_OBJ_TO_PTR(mp_obj_new_bytearray_of_zeros(strip->length * 3));
+        mp_obj_array_t *bytearray = MP_OBJ_TO_PTR(mp_obj_new_bytearray(strip->length * 3, NULL));
+        memset(bytearray->items, 0, strip->length * 3);
+        strip->buf = bytearray;
         
         mp_obj_list_append(self->strips, MP_OBJ_FROM_PTR(strip));
 
