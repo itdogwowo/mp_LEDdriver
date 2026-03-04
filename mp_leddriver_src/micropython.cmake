@@ -15,3 +15,7 @@ target_include_directories(mp_leddriver_lib INTERFACE
 
 # Link to the main MicroPython target
 target_link_libraries(usermod INTERFACE mp_leddriver_lib)
+
+# Add dependency on ESP-IDF components
+# This ensures header paths for esp_lcd and driver are available
+target_link_libraries(usermod INTERFACE idf::esp_lcd idf::driver)
