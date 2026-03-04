@@ -2,9 +2,14 @@
 #include "mp_leddriver.h"
 #include <string.h>
 
-// Forward declaration of strip type and locals dict
+// Forward declaration of strip type
 const mp_obj_type_t mp_type_Strip;
-// Removed static MP_DEFINE_CONST_DICT forward declaration to avoid MP_ARRAY_SIZE error
+
+// Locals Dict (Empty for now, but good to have)
+static const mp_rom_map_elem_t strip_locals_dict_table[] = {
+    // Add methods here if needed
+};
+static MP_DEFINE_CONST_DICT(strip_locals_dict, strip_locals_dict_table);
 
 // Constructor (Called by Bus.add_strip)
 mp_obj_t strip_make_new(mp_obj_i8080_bus_t *bus, int pin_index, int length, int type) {
@@ -16,8 +21,13 @@ mp_obj_t strip_make_new(mp_obj_i8080_bus_t *bus, int pin_index, int length, int 
     self->bpp = 3; // Default to RGB, TODO: Support RGBW
     
     // Allocate pixel buffer as bytearray
-    // Use modern API: mp_obj_new_bytearray(size, items)
+    // Use mp_obj_new_bytearray(size, items). If items is NULL, it allocates but contents are undefined.
+    // So we allocate then memset.
     self->pixel_buf = mp_obj_new_bytearray(length * self->bpp, NULL);
+    mp_buffer_info_t bufinfo;
+    if (mp_get_buffer(self->pixel_buf, &bufinfo, MP_BUFFER_WRITE)) {
+        memset(bufinfo.buf, 0, bufinfo.len);
+    }
     
     return MP_OBJ_FROM_PTR(self);
 }
@@ -31,7 +41,8 @@ static void strip_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
             dest[0] = self->pixel_buf;
         } else {
             // Check locals_dict for methods
-            mp_map_elem_t *elem = mp_map_lookup(&mp_type_Strip.locals_dict->map, MP_OBJ_NEW_QSTR(attr), MP_MAP_LOOKUP);
+            // Access the dictionary directly since we defined it statically
+            mp_map_elem_t *elem = mp_map_lookup(&strip_locals_dict.map, MP_OBJ_NEW_QSTR(attr), MP_MAP_LOOKUP);
             if (elem != NULL) {
                 mp_convert_member_lookup(self_in, self->base.type, elem->value, dest);
             }
@@ -144,13 +155,6 @@ void encode_strip_to_buffer(mp_obj_strip_t *strip, uint8_t *buffer, size_t buffe
         }
     }
 }
-
-// Locals Dict (Empty for now, but good to have)
-static const mp_rom_map_elem_t strip_locals_dict_table[] = {
-    // Add methods here if needed
-};
-static MP_DEFINE_CONST_DICT(strip_locals_dict, strip_locals_dict_table);
-
 // Type Definition using modern macro
 MP_DEFINE_CONST_OBJ_TYPE(
     mp_type_Strip,

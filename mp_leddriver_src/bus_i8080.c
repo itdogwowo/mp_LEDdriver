@@ -199,9 +199,10 @@ static const mp_rom_map_elem_t i8080_bus_locals_dict_table[] = {
 static MP_DEFINE_CONST_DICT(i8080_bus_locals_dict, i8080_bus_locals_dict_table);
 
 // Type Definition
-const mp_obj_type_t mp_type_I8080_Bus = {
-    { &mp_type_type },
-    .name = MP_QSTR_I8080_Bus,
-    .make_new = i8080_bus_make_new,
-    .locals_dict = (mp_obj_dict_t *)&i8080_bus_locals_dict,
-};
+MP_DEFINE_CONST_OBJ_TYPE(
+    mp_type_I8080_Bus,
+    MP_QSTR_I8080_Bus,
+    MP_TYPE_FLAG_NONE,
+    make_new, i8080_bus_make_new,
+    locals_dict, &i8080_bus_locals_dict
+);
