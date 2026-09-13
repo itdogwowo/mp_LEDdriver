@@ -1,0 +1,18 @@
+{
+  "_comment": "mp_LEDdriver 的 Unix port 測試專案 — 只為了在沒有硬體時驗證 C 模組的 MicroPython API（參數解析、memoryview、attr slot、錯誤處理）。ESP_PLATFORM 未定義 → led_alloc 走 malloc fallback，量不到真實 SRAM。",
+  "build": {
+    "target": "unix",
+    "dir": "build",
+    "jobs": null,
+    "user_c_modules": null,
+    "strict": false,
+    "no_doctor": true,
+    "no_clean": false
+  },
+  "exmod": {
+    "root": "/Users/tungkinlee/Documents/Git/Sourcetree/mp_LEDdriver",
+    "list": [
+      "/micropython.cmake"
+    ]
+  }
+}
